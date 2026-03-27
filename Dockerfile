@@ -1,24 +1,28 @@
-FROM ubuntu:22.04
+# 1. Use a pre-configured Jupyter base (Ubuntu 22.04 underneath)
+FROM jupyter/base-notebook:ubuntu-22.04
 
-# Non-interactive mode taaki build na ruke
-ENV DEBIAN_FRONTEND=noninteractive
+USER root
 
+# 2. Install only the essential tools you need for your scripts
 RUN apt-get update && apt-get install -y \
-    openssh-server curl wget git sudo iputils-ping \
+    curl \
+    wget \
+    git \
+    sudo \
     && rm -rf /var/lib/apt/lists/*
 
-# Tailscale install
-RUN curl -fsSL https://tailscale.com/install.sh | sh
+# 3. Copy all your files (main.ipynb, root.sh, etc.) to the working directory
+COPY . /home/jovyan/work
 
-# SSH Setup
-RUN mkdir /var/run/sshd && echo 'root:gg-gamer-786' | chpasswd
-RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+# 4. Fix permissions so the Jupyter user can run your scripts
+RUN chown -R jovyan:users /home/jovyan/work && \
+    chmod +x /home/jovyan/work/*.sh
 
-COPY start.sh /start.sh
-RUN chmod +x /start.sh
+USER jovyan
 
-# Railway ke liye environment variables
-ENV SSH_PORT=22
-EXPOSE 22
+# 5. Install Python dependencies for your Sine Wave plot
+RUN pip install --no-cache-dir numpy matplotlib
 
-CMD ["bash", "/start.sh"]
+# 6. Tell Binder to start the Notebook server
+WORKDIR /home/jovyan/work
+CMD ["start-notebook.sh", "--ip=0.0.0.0", "--port=8888", "--no-browser"]
